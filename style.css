@@ -1,0 +1,29 @@
+img{
+  display: block;
+  max-width: 100%;
+  width: auto;
+  height: auto;
+}
+
+aside{
+  display: none;
+}
+
+h1:first-of-type{
+  text-align: center;
+}
+
+.gg{
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+
+}
+
+div.n:nth-child(2) {
+  display: none;
+}
+
+div.cc.iq.s.t.u.ir.ai.bv.is.it{
+  display: none;
+}
