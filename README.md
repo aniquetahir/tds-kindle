@@ -7,3 +7,11 @@ This is a script to get articles from 'Towards Data Science' blog and create a k
 - Sections to move between articles
 - No article limit!
 - No paywalls!
+
+# Limitations
+- Kindle only allows maximum of 10MB files to be sent over email
+
+
+# Usage
+
+WIP

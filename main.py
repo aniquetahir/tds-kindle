@@ -6,7 +6,8 @@ import argparse
 import os
 from typing import Dict, List, Union
 from time import sleep
-
+import shutil
+from subprocess import run
 
 def scrollBottom(wd: Firefox):
     total_height = int(wd.execute_script("return document.body.scrollHeight;"))
@@ -33,7 +34,10 @@ def get_links(wd: Firefox, p_type: str, limit: int = 10) -> List[Dict[str, Union
         title = article.find_element_by_css_selector('.graf--title').text.strip()
         # print(title)
         date = article.find_element_by_css_selector('time').get_attribute('datetime')
-        claps = article.find_element_by_css_selector('.js-multirecommendCountButton').text
+        try:
+            claps = article.find_element_by_css_selector('.js-multirecommendCountButton').text
+        except:
+            claps = 0
         try:
             comments = article.find_element_by_css_selector('.buttonSet.u-floatRight > a[href]').text
             comments = int(comments.split(' ')[0])
@@ -61,16 +65,23 @@ def get_html(wd: Firefox, article: Dict[str, Union[int, str]]) -> Dict[str, str]
     scrollBottom(wd)
 
     # For each image, replace with base64
-    # with open('convert_images.js','r') as script_file:
-    #     script_src = script_file.read()
-    #
-    # wd.execute_script(script_src)
+    with open('convert_images.js', 'r') as script_file:
+        script_src = script_file.read()
+
+    wd.execute_script(script_src)
 
     sleep(5)
     # Get html of the page
     article_div = wd.find_element_by_css_selector('article')
 
-    html = article_div.get_property('innerHTML')
+    html = article_div.get_property('outerHTML')
+
+    with open('cleanify.js') as script_file:
+        script_src = script_file.read()
+        wd.execute_script(script_src)
+        sleep(3)
+    html: str = wd.page_source
+    html = html.replace('max-width:680px', 'max-width:90%')
 
     article['html'] = html
 
@@ -94,6 +105,11 @@ if __name__ == "__main__":
     if 'GECKODRIVER_PATH' in os.environ.keys():
         gd_path = os.environ['GECKODRIVER_PATH']
 
+    if os.path.exists('tmp'):
+        shutil.rmtree('tmp')
+
+    os.mkdir('tmp')
+
     fo = Options()
     fo.headless = True
     wd = Firefox(executable_path=gd_path, firefox_binary=ff_path, options=fo)
@@ -101,6 +117,9 @@ if __name__ == "__main__":
         'Referer': 'https://twitter.com/freedom',
     }
     links = get_links(wd, p_type)
+
+    # TODO Filter out links already parsed and sent
+
     for link in links:
         get_html(wd, link)
         wd.delete_all_cookies()
@@ -110,21 +129,42 @@ if __name__ == "__main__":
 
     # TODO Create TOC
 
-    with open('template.html') as template_file:
-        template = template_file.read()
+    # with open('template.html') as template_file:
+    #     template = template_file.read()
+    #
+    # with open('style.css') as style_file:
+    #     style = style_file.read()
+    #     template = template.replace('{style}', style)
 
-    with open('style.css') as style_file:
-        style = style_file.read()
-        template = template.replace('{style}', style)
+    html_files = []
+    for i, link in enumerate(links):
 
-    html_accumulated = ''
-    for link in links:
-        html_accumulated += link['html']
+        with open('tmp/%i.html' % i, 'w') as tmp_html:
+            tmp_html.write(link['html'])
 
-    template = template.replace('{articles}', html_accumulated)
+        html_files.append('tmp/%i.html' % i)
 
-    with open('update.html', 'w', encoding='utf8') as update_file:
-        update_file.write(template)
+    cmd_args = [
+        'wkhtmltopdf',
+        '-s',
+        'A5',
+        '-l',
+        '-g',
+        '-d',
+        '400',
+        '--enable-smart-shrinking'
+    ]
+
+    for f in html_files:
+        cmd_args.append(f)
+
+    cmd_args.append('update.pdf')
+
+    run(cmd_args)
+    # template = template.replace('{articles}', html_accumulated)
+    #
+    # with open('update.html', 'w', encoding='utf8') as update_file:
+    #     update_file.write(template)
 
     # TODO email recipients
 
