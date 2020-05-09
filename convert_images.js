@@ -1,14 +1,18 @@
 function toDataURL(src, callback, outputFormat) {
-  var img = new Image();
+  let img = new Image();
   img.crossOrigin = 'Anonymous';
   img.onload = function() {
-    var canvas = document.createElement('CANVAS');
-    var ctx = canvas.getContext('2d');
-    var dataURL;
+    let canvas = document.createElement('CANVAS');
+    let ctx = canvas.getContext('2d');
+    let dataURL;
     canvas.height = this.naturalHeight;
     canvas.width = this.naturalWidth;
+    if(this.naturalWidth > 768){
+      let mScale = 768/this.naturalWidth;
+      ctx.scale(mScale, mScale);
+    }
     ctx.drawImage(this, 0, 0);
-    dataURL = canvas.toDataURL(outputFormat);
+    dataURL = canvas.toDataURL('image/jpeg');
     callback(dataURL);
   };
   img.src = src;
@@ -17,6 +21,7 @@ function toDataURL(src, callback, outputFormat) {
     img.src = src;
   }
 }
+
 
 all_images = document.querySelectorAll('img');
 all_images.forEach(i=>{

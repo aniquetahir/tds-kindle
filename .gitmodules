@@ -1,0 +1,3 @@
+[submodule "html2pdf"]
+	path = html2pdf
+	url = https://github.com/aniquetahir/html2pdf.git

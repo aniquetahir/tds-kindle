@@ -145,18 +145,11 @@ if __name__ == "__main__":
         html_files.append('tmp/%i.html' % i)
 
     cmd_args = [
-        'wkhtmltopdf',
-        '-s',
-        'A5',
-        '-l',
-        '-g',
-        '-d',
-        '400',
-        '--enable-smart-shrinking'
+        'html2pdf/main.js'
     ]
 
     for f in html_files:
-        cmd_args.append(f)
+        cmd_args.append('file://%s' % os.path.abspath(f))
 
     cmd_args.append('update.pdf')
 
