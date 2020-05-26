@@ -8,6 +8,18 @@ from typing import Dict, List, Union
 from time import sleep
 import shutil
 from subprocess import run
+from datetime import datetime
+from khut import send_mail
+import json
+
+CLAP_THRESHOLD = 0
+
+tag_map = {
+    'ml': 'machine-learning',
+    'ai': 'artificial-intelligence',
+    'ds': 'data-science'
+}
+
 
 def scrollBottom(wd: Firefox):
     total_height = int(wd.execute_script("return document.body.scrollHeight;"))
@@ -16,42 +28,62 @@ def scrollBottom(wd: Firefox):
         sleep(0.5)
 
 
-def get_links(wd: Firefox, p_type: str, limit: int = 10) -> List[Dict[str, Union[int, str]]]:
+def get_links(wd: Firefox, p_type: str, tag: str = None, limit: int = 10) -> List[Dict[str, Union[int, str]]]:
     links_url = 'https://towardsdatascience.com/latest'
+
+    if tag:
+        links_url = "https://towardsdatascience.com/tagged/%s" % tag_map[tag]
+
+    print("Parsing Index Page: %s" % links_url)
+
     if p_type == 'trending':
         links_url = 'https://towardsdatascience.com/trending'
     wd.get(links_url)
     sleep(3)
     links = []
     num_articles = 0
+    articles_parsed = 0
     while num_articles < limit:
         articles = wd.find_elements_by_css_selector('.postArticle')
         num_articles = len(articles)
         wd.execute_script('window.scrollTo(0,document.body.scrollHeight)')
         sleep(3)
 
-    for article in articles:
-        title = article.find_element_by_css_selector('.graf--title').text.strip()
-        # print(title)
-        date = article.find_element_by_css_selector('time').get_attribute('datetime')
-        try:
-            claps = article.find_element_by_css_selector('.js-multirecommendCountButton').text
-        except:
-            claps = 0
-        try:
-            comments = article.find_element_by_css_selector('.buttonSet.u-floatRight > a[href]').text
-            comments = int(comments.split(' ')[0])
-        except NoSuchElementException:
-            comments = 0
-        link = article.find_element_by_css_selector('.postArticle-content > a').get_attribute('href')
+    while True:
+        for article in articles:
+            title = article.find_element_by_css_selector('.graf--title').text.strip()
+            # print(title)
+            date = article.find_element_by_css_selector('time').get_attribute('datetime')
+            try:
+                claps = int(article.find_element_by_css_selector('.js-multirecommendCountButton').text)
+            except:
+                claps = 0
+            try:
+                comments = article.find_element_by_css_selector('.buttonSet.u-floatRight > a[href]').text
+                comments = int(comments.split(' ')[0])
+            except NoSuchElementException:
+                comments = 0
+            link = article.find_element_by_css_selector('.postArticle-content > a').get_attribute('href')
 
-        links.append({
-            'title': title,
-            'date': date,
-            'claps': claps,
-            'comments': comments,
-            'link': link
-        })
+            if claps < CLAP_THRESHOLD:
+                continue
+
+            links.append({
+                'title': title,
+                'date': date,
+                'claps': claps,
+                'comments': comments,
+                'link': link
+            })
+
+        if len(links) >= limit:
+            break
+        else:
+            print("Getting More articles to match threshold...")
+            articles_parsed += len(articles)
+            wd.execute_script('window.scrollTo(0,document.body.scrollHeight)')
+            sleep(5)
+            articles = wd.find_elements_by_css_selector('.postArticle')[articles_parsed:]
 
     return links[:limit]
 
@@ -89,21 +121,29 @@ def get_html(wd: Firefox, article: Dict[str, Union[int, str]]) -> Dict[str, str]
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Gets Towards Data Science articles and sends them to your kindle")
-    parser.add_argument('-t', choices=['trending', 'latest'])
+    parser.add_argument('-type', choices=['trending', 'latest'])
+    parser.add_argument('-c', required=True, type=int, help="The clap threshold")
+    parser.add_argument('-tag', choices=['ml', 'ds', 'ai'],
+                        help="Select a tag: ml(Machine Learning), ds(Data Science), or ai(Artificial Intelligence)")
+
     args = parser.parse_args()
-    if not args.t:
-        p_type = 'trending'
+    if not args.type:
+        p_type = 'latest'
     else:
-        p_type = args.t
+        p_type = args.type
 
-    ff_path = 'firefox'
-    gd_path = 'geckodriver'
+    CLAP_THRESHOLD = int(args.c)
 
-    if 'FIREFOX_PATH' in os.environ.keys():
-        ff_path = os.environ['FIREFOX_PATH']
+    config_filename = "config.json"
+    config = None
+    if os.path.exists("config.local.json"):
+        config_filename = "config.local.json"
 
-    if 'GECKODRIVER_PATH' in os.environ.keys():
-        gd_path = os.environ['GECKODRIVER_PATH']
+    with open(config_filename) as config_file:
+        config = json.load(config_file)
+
+    ff_path = config['FIREFOX_PATH']
+    gd_path = config['GECKODRIVER_PATH']
 
     if os.path.exists('tmp'):
         shutil.rmtree('tmp')
@@ -116,7 +156,7 @@ if __name__ == "__main__":
     wd.header_overrides = {
         'Referer': 'https://twitter.com/freedom',
     }
-    links = get_links(wd, p_type)
+    links = get_links(wd, p_type, args.tag)
 
     # TODO Filter out links already parsed and sent
 
@@ -126,15 +166,7 @@ if __name__ == "__main__":
         wd.execute_script('window.localStorage.clear()')
         wd.execute_script('window.sessionStorage.clear()')
 
-
     # TODO Create TOC
-
-    # with open('template.html') as template_file:
-    #     template = template_file.read()
-    #
-    # with open('style.css') as style_file:
-    #     style = style_file.read()
-    #     template = template.replace('{style}', style)
 
     html_files = []
     for i, link in enumerate(links):
@@ -151,7 +183,13 @@ if __name__ == "__main__":
     for f in html_files:
         cmd_args.append('file://%s' % os.path.abspath(f))
 
-    cmd_args.append('update.pdf')
+    category = ""
+    if args.type:
+        category = args.type + "_"
+
+    output_filename = 'update_%s%s.pdf' % (category, datetime.now().strftime("%d_%b_%y"))
+
+    cmd_args.append(output_filename)
 
     run(cmd_args)
     # template = template.replace('{articles}', html_accumulated)
@@ -160,6 +198,15 @@ if __name__ == "__main__":
     #     update_file.write(template)
 
     # TODO email recipients
+    send_mail(config['email_from'], config['email_to'],
+              config['email_subject'], config['smtp_server'],
+              config['smtp_port'], config['smtp_username'],
+              config['smtp_password'],
+              [{
+                  'path': os.path.abspath(output_filename),
+                  'type': 'application',
+                  'subtype': 'pdf'
+              }])
 
     wd.close()
 
