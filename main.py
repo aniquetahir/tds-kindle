@@ -63,7 +63,11 @@ def get_links(wd: Firefox, p_type: str, tag: str = None, limit: int = 10) -> Lis
                 comments = int(comments.split(' ')[0])
             except NoSuchElementException:
                 comments = 0
-            link = article.find_element_by_css_selector('.postArticle-content > a').get_attribute('href')
+
+            try:
+                link = article.find_element_by_css_selector('.postArticle-content > a').get_attribute('href')
+            except NoSuchElementException:
+                link = article.find_element_by_css_selector('.postArticle > div:nth-child(2) > a').get_attribute('href')
 
             if claps < CLAP_THRESHOLD:
                 continue

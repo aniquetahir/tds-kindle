@@ -1,8 +1,8 @@
 {
   "FIREFOX_PATH": "/Applications/Firefox Developer Edition.app/Contents/MacOS/firefox",
   "GECKODRIVER_PATH": "./geckodriver",
-  "email_from": "aniquetahir@pm.me",
-  "email_to": "anique89@kindle.com",
+  "email_from": "your.email@pm.me",
+  "email_to": "example@kindle.com",
   "subject": "TDS",
   "smtp_server": "127.0.0.1",
   "smtp_port": 1025,
