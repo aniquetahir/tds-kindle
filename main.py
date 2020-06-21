@@ -172,6 +172,8 @@ if __name__ == "__main__":
 
     # TODO Create TOC
 
+    wd.close()
+
     html_files = []
     for i, link in enumerate(links):
 
@@ -188,8 +190,8 @@ if __name__ == "__main__":
         cmd_args.append('file://%s' % os.path.abspath(f))
 
     category = ""
-    if args.type:
-        category = args.type + "_"
+    if args.tag:
+        category = args.tag + "_"
 
     output_filename = 'update_%s%s.pdf' % (category, datetime.now().strftime("%d_%b_%y"))
 
@@ -212,5 +214,5 @@ if __name__ == "__main__":
                   'subtype': 'pdf'
               }])
 
-    wd.close()
+
 
